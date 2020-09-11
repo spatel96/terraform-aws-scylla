@@ -16,6 +16,9 @@ locals {
   public_key   = tls_private_key.scylla.public_key_openssh
   cluster_name = "cluster-${random_uuid.cluster_id.result}"
   scylla_ami   = var.aws_ami_scylla[format("%s_%s", var.cluster_scylla_version, var.aws_region)]
+  vpc_id       = var.vpc_id == "" ? aws_vpc.vpc[0].id : var.vpc_id
+  subnet_id    = var.vpc_id == "" ? aws_subnet.subnet.*.id : var.subnet_id
+
 }
 
 resource "random_uuid" "cluster_id" {
@@ -32,7 +35,7 @@ resource "aws_instance" "scylla" {
   key_name          = aws_key_pair.support.key_name
   monitoring        = true
   availability_zone = element(local.aws_az, count.index % length(local.aws_az))
-  subnet_id         = element(aws_subnet.subnet.*.id, count.index)
+  subnet_id         = element(local.subnet_id, count.index)
   user_data         = format(join("\n", var.scylla_args), local.cluster_name)
 
   security_groups = [
@@ -66,7 +69,7 @@ resource "aws_instance" "monitor" {
   key_name          = aws_key_pair.support.key_name
   monitoring        = true
   availability_zone = element(local.aws_az, 0)
-  subnet_id         = element(aws_subnet.subnet.*.id, 0)
+  subnet_id         = element(local.subnet_id, 0)
   security_groups = [
     aws_security_group.cluster.id,
     aws_security_group.cluster_admin.id,
@@ -245,13 +248,15 @@ resource "aws_key_pair" "support" {
 }
 
 resource "aws_vpc" "vpc" {
-  cidr_block = "10.0.0.0/16"
+  count      = var.vpc_id == "" ? 1 : 0
+  cidr_block = var.vpc_cidr_block
 
   tags = local.aws_tags
 }
 
 resource "aws_internet_gateway" "vpc_igw" {
-  vpc_id = aws_vpc.vpc.id
+  count  = var.vpc_id == "" ? 1 : 0
+  vpc_id = local.vpc_id
 
   tags = local.aws_tags
 }
@@ -259,12 +264,12 @@ resource "aws_internet_gateway" "vpc_igw" {
 resource "aws_subnet" "subnet" {
   availability_zone       = element(local.aws_az, count.index % length(local.aws_az))
   cidr_block              = format("10.0.%d.0/24", count.index)
-  vpc_id                  = aws_vpc.vpc.id
+  vpc_id                  = local.vpc_id
   map_public_ip_on_launch = true
 
   tags = local.aws_tags
 
-  count      = var.cluster_count
+  count      = var.vpc_id == "" ? var.cluster_count : 0
   depends_on = [aws_internet_gateway.vpc_igw]
 }
 
@@ -279,8 +284,7 @@ resource "aws_eip" "scylla" {
     },
   )
 
-  count      = var.cluster_count
-  depends_on = [aws_internet_gateway.vpc_igw]
+  count = var.cluster_count
 }
 
 resource "aws_eip" "monitor" {
@@ -294,31 +298,31 @@ resource "aws_eip" "monitor" {
     },
   )
 
-  depends_on = [aws_internet_gateway.vpc_igw]
 }
 
 resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.vpc.id
+  vpc_id = local.vpc_id
+  count  = var.vpc_id == "" ? 1 : 0
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.vpc_igw.id
+    gateway_id = aws_internet_gateway.vpc_igw[0].id
   }
 
   tags = local.aws_tags
 }
 
 resource "aws_route_table_association" "public" {
-  route_table_id = aws_route_table.public.id
-  subnet_id      = element(aws_subnet.subnet.*.id, count.index)
+  route_table_id = aws_route_table.public[0].id
+  subnet_id      = element(local.subnet_id, count.index)
 
-  count = var.cluster_count
+  count = var.vpc_id == "" ? var.cluster_count : 0
 }
 
 resource "aws_security_group" "cluster" {
   name        = "cluster-${random_uuid.cluster_id.result}"
   description = "Security Group for inner cluster connections"
-  vpc_id      = aws_vpc.vpc.id
+  vpc_id      = local.vpc_id
 
   tags = local.aws_tags
 }
@@ -384,7 +388,7 @@ resource "aws_security_group_rule" "cluster_monitor_sg" {
 resource "aws_security_group" "cluster_admin" {
   name        = "cluster-admin-${random_uuid.cluster_id.result}"
   description = "Security Group for the admin of cluster #${random_uuid.cluster_id.result}"
-  vpc_id      = aws_vpc.vpc.id
+  vpc_id      = local.vpc_id
 
   tags = local.aws_tags
 }
@@ -417,7 +421,7 @@ resource "aws_security_group_rule" "cluster_admin_ingress" {
 resource "aws_security_group" "cluster_user" {
   name        = "cluster-user-${random_uuid.cluster_id.result}"
   description = "Security Group for the user of cluster #${random_uuid.cluster_id.result}"
-  vpc_id      = aws_vpc.vpc.id
+  vpc_id      = local.vpc_id
 
   tags = local.aws_tags
 }
