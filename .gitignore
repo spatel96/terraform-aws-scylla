@@ -4,3 +4,5 @@ terraform.tfvars
 keys/support.pem
 .terraform
 TODO
+/.idea/
+/terraform.tfstate

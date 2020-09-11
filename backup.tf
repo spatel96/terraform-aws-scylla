@@ -1,26 +1,26 @@
 data "template_file" "bucket" {
-	template = "cloud-$${environment}-cluster-bucket-$${cluster_id}"
+  template = "cloud-$${environment}-cluster-bucket-$${cluster_id}"
 
-	vars = {
-		environment = "${var.environment}"
-		cluster_id = "${random_uuid.cluster_id.result}"
-	}
+  vars = {
+    environment = var.environment
+    cluster_id  = random_uuid.cluster_id.result
+  }
 }
 
 resource "aws_iam_user" "backup" {
-	name = "${format("cluster-bucket-%s", random_uuid.cluster_id.result)}"
-	path = "/users/"
+  name = format("cluster-bucket-%s", random_uuid.cluster_id.result)
+  path = "/users/"
 }
 
 resource "aws_iam_access_key" "backup" {
-	user = "${aws_iam_user.backup.name}"
+  user = aws_iam_user.backup.name
 }
 
 resource "aws_iam_user_policy" "backup" {
-	name = "${format("cluster-bucket-%s-policy", random_uuid.cluster_id.result)}"
-	user = "${aws_iam_user.backup.name}"
+  name = format("cluster-bucket-%s-policy", random_uuid.cluster_id.result)
+  user = aws_iam_user.backup.name
 
-	policy = <<EOF
+  policy = <<EOF
 {
 	"Version": "2012-10-17",
 	"Statement": [{
@@ -37,4 +37,6 @@ resource "aws_iam_user_policy" "backup" {
 	}]
 }
 EOF
+
 }
+
