@@ -4,9 +4,6 @@ Terraform module for deploying ScyllaDB cluster on AWS. It also deploys [Scylla 
 
 ### Example with included VPC/subnets
 
-```bash
-$ cat main.tf
-```
 ```hcl
 module "scylla-cluster" {
 	source  = "github.com/spatel96/terraform-aws-scylla"
@@ -18,9 +15,6 @@ module "scylla-cluster" {
 ```
 ### Example without VPC
 
-```bash
-$ cat main.tf
-```
 ```hcl
 module "scylla-cluster" {
 	source  = "github.com/spatel96/terraform-aws-scylla"
