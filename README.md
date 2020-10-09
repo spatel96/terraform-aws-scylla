@@ -9,7 +9,7 @@ $ cat main.tf
 ```
 ```hcl
 module "scylla-cluster" {
-	source  = "github.com/rjeczalik/terraform-aws-scylla"
+	source  = "github.com/spatel96/terraform-aws-scylla"
 
 	aws_access_key = "AKIA..."
 	aws_secret_key = "..."
